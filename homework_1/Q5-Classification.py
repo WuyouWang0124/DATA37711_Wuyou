@@ -1,0 +1,126 @@
+import numpy as np
+import torch
+from sklearn.datasets import load_breast_cancer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+
+# Define the binary cross-entropy loss.
+def binary_cross_entropy(y, p):
+    p = torch.clamp(p, 1e-7, 1 - 1e-7)
+    return -(y * torch.log(p) + (1 - y) * torch.log(1 - p)).mean()
+
+
+# Convert the linear output into a probability.
+def predict_probability(X, w, b, link):
+    z = X @ w + b
+
+    if link == "logistic":
+        return torch.sigmoid(z)
+
+    normal = torch.distributions.Normal(0.0, 1.0)
+    return normal.cdf(z)
+
+
+# Train either model using mini-batch SGD.
+def train_model(X, y, link):
+    torch.manual_seed(42)
+
+    w = torch.zeros(
+        X.shape[1], dtype=torch.float64, requires_grad=True
+    )
+    b = torch.zeros(
+        (), dtype=torch.float64, requires_grad=True
+    )
+
+    optimizer = torch.optim.SGD([w, b], lr=0.01)
+
+    for epoch in range(500):
+        order = torch.randperm(len(y))
+
+        for start in range(0, len(y), 32):
+            indices = order[start:start + 32]
+
+            p = predict_probability(X[indices], w, b, link)
+            loss = binary_cross_entropy(y[indices], p)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+    with torch.no_grad():
+        p = predict_probability(X, w, b, link)
+        final_loss = binary_cross_entropy(y, p).item()
+
+    return w, b, final_loss
+
+
+def main():
+    # Load the dataset included with scikit-learn.
+    X, y = load_breast_cancer(return_X_y=True)
+
+    # Use the same training/test split for all three models.
+    X_train, X_test, y_train, y_test = train_test_split(
+        X,
+        y,
+        test_size=0.20,
+        random_state=42,
+        stratify=y
+    )
+
+    # Fit the scaler using only the training data.
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    # Baseline: scikit-learn logistic regression.
+    baseline = LogisticRegression(
+        C=1.0,
+        solver="lbfgs",
+        max_iter=1000
+    )
+    baseline.fit(X_train, y_train)
+    baseline_predictions = baseline.predict(X_test)
+
+    print(f"Training observations: {len(y_train)}")
+    print(f"Test observations: {len(y_test)}")
+    print("Labels: 0 = malignant, 1 = benign")
+
+    print("\nBaseline: sklearn logistic regression")
+    correct = np.sum(baseline_predictions == y_test)
+    accuracy = accuracy_score(y_test, baseline_predictions)
+    print(f"Correct predictions: {correct}/{len(y_test)}")
+    print(f"Test accuracy: {accuracy:.6f}")
+
+    # Convert the data into PyTorch tensors.
+    X_train_tensor = torch.tensor(X_train, dtype=torch.float64)
+    X_test_tensor = torch.tensor(X_test, dtype=torch.float64)
+    y_train_tensor = torch.tensor(y_train, dtype=torch.float64)
+
+    # Part (a): logistic regression.
+    # Part (b): probit regression.
+    for part, link in [("(a)", "logistic"), ("(b)", "probit")]:
+        w, b, final_loss = train_model(
+            X_train_tensor, y_train_tensor, link
+        )
+
+        with torch.no_grad():
+            p = predict_probability(
+                X_test_tensor, w, b, link
+            )
+            predictions = (p >= 0.5).to(torch.int64).numpy()
+
+        correct = np.sum(predictions == y_test)
+        accuracy = accuracy_score(y_test, predictions)
+
+        print(f"\n{part} PyTorch {link} regression")
+        print("SGD: learning rate = 0.01, epochs = 500, batch size = 32")
+        print(f"Final training BCE: {final_loss:.6f}")
+        print(f"Correct predictions: {correct}/{len(y_test)}")
+        print(f"Test accuracy: {accuracy:.6f}")
+
+
+if __name__ == "__main__":
+    main()
