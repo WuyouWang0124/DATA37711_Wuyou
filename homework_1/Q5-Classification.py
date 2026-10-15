@@ -6,14 +6,10 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
-
-# Define the binary cross-entropy loss.
 def binary_cross_entropy(y, p):
     p = torch.clamp(p, 1e-7, 1 - 1e-7)
     return -(y * torch.log(p) + (1 - y) * torch.log(1 - p)).mean()
 
-
-# Convert the linear output into a probability.
 def predict_probability(X, w, b, link):
     z = X @ w + b
 
@@ -23,8 +19,6 @@ def predict_probability(X, w, b, link):
     normal = torch.distributions.Normal(0.0, 1.0)
     return normal.cdf(z)
 
-
-# Train either model using mini-batch SGD.
 def train_model(X, y, link):
     torch.manual_seed(42)
 
@@ -75,7 +69,7 @@ def main():
     X_train = scaler.fit_transform(X_train)
     X_test = scaler.transform(X_test)
 
-    # Baseline: scikit-learn logistic regression.
+    # scikit-learn
     baseline = LogisticRegression(
         C=1.0,
         solver="lbfgs",
@@ -94,7 +88,7 @@ def main():
     print(f"Correct predictions: {correct}/{len(y_test)}")
     print(f"Test accuracy: {accuracy:.6f}")
 
-    # Convert the data into PyTorch tensors.
+    # PyTorch
     X_train_tensor = torch.tensor(X_train, dtype=torch.float64)
     X_test_tensor = torch.tensor(X_test, dtype=torch.float64)
     y_train_tensor = torch.tensor(y_train, dtype=torch.float64)
