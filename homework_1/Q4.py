@@ -30,7 +30,6 @@ def main():
         X, y, test_size=0.20, random_state=42
     )
 
-    # Fit standardization using training data only.
     models = {
         "Linear regression": make_pipeline(
             StandardScaler(),
@@ -67,14 +66,14 @@ def main():
             )
         })
 
-        # Display QQ plots without saving them.
+        # Plot
         stats.probplot(residuals, dist="norm", plot=ax)
         ax.set_title(f"{name}\np = {p_value:.4f}")
         ax.set_xlabel("Theoretical normal quantiles")
         ax.set_ylabel("Ordered test residuals")
         ax.grid(alpha=0.2)
 
-    # Print the numerical results in the terminal.
+    # numerical results
     print(f"\nTraining observations: {len(y_train)}")
     print(f"Test observations: {len(y_test)}")
     print("Residual = observed ALE - predicted ALE")
@@ -90,8 +89,6 @@ def main():
     )
 
     print("\nNot rejecting normality does not prove normality.")
-
-    # Open the plots in a window. No output files are created.
     fig.tight_layout()
     plt.show()
 
